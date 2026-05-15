@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPTV M3U 服务器管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* 极速背景：无复杂动画，无渲染阻塞 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #667eea;
+            min-height: 100vh;
+            padding: 15px;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 2.2em;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 1em;
+            opacity: 0.9;
+        }
+
+        /* 极简卡片：无动画、无冗余样式，加载极快 */
+        .card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+        }
+
+        .card-title {
+            font-size: 1.4em;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #667eea;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+        }
+
+        input[type="text"], select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border 0.2s;
+        }
+
+        input[type="text"]:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: white;
+        }
+
+        .btn-primary { background: #667eea; }
+        .btn-success { background: #11998e; }
+        .btn-info { background: #4facfe; }
+
+        button:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status-bar {
+            background: #f5f5f5;
+            border-left: 4px solid #667eea;
+            padding: 12px;
+            margin-top: 15px;
+            border-radius: 8px;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+        }
+
+        .status-bar.success { border-left-color: #38ef7d; background: #e8f5e9; }
+        .status-bar.error { border-left-color: #fa709a; background: #ffebee; }
+        .status-text { color: #333; }
+
+        .link-list { margin-top: 15px; }
+        .link-item {
+            background: #f8f9fa;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            border-left: 4px solid #667eea;
+        }
+        .link-url {
+            color: #667eea;
+            font-family: monospace;
+            word-break: break-all;
+            flex: 1;
+            padding: 6px 10px;
+            background: rgba(102, 126, 234, 0.05);
+            border-radius: 6px;
+        }
+        .link-actions { display: flex; gap: 8px; }
+        .btn-small { padding: 6px 12px; font-size: 0.9em; }
+
+        /* 核心修改：系统信息网格样式完全统一 */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .info-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .info-label { 
+            font-size: 0.9em; 
+            color: #666; 
+            margin-bottom: 5px; 
+        }
+        .info-value { 
+            font-size: 1.1em; 
+            color: #333; 
+            font-weight: 600; 
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* 核心：默认隐藏模块，检查成功后显示 */
+        .hidden { display: none !important; }
+
+        /* 内嵌预览面板：全屏高度，无跳转 */
+        .preview-iframe {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        /* 极简滚动条 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #667eea; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>IPTV M3U 服务器管理</h1>
+            <p>高性能 IPTV 频道列表生成器 | 支持单播/组播 | 实时缓存管理</p>
+        </div>
+
+        <!-- 仅默认显示：服务器配置 -->
+        <div class="card">
+            <h2 class="card-title">服务器配置</h2>
+            <div class="form-group">
+                <label for="serverUrl">服务器地址</label>
+                <input type="text" id="serverUrl" placeholder="例如: http://192.168.1.2:5000" value="">
+            </div>
+            <div class="button-group">
+                <button class="btn-primary" onclick="checkServerStatus()">检查服务器状态</button>
+            </div>
+            <div id="connectionStatus" class="status-bar">
+                <div class="status-text">等待检查...</div>
+            </div>
+        </div>
+
+        <!-- 以下模块 默认隐藏，检查成功后显示 -->
+        <div class="card hidden" id="versionCard">
+            <h2 class="card-title">M3U 版本选择</h2>
+            <div class="form-group">
+                <label for="versionSelect">选择版本</label>
+                <select id="versionSelect">
+                    <option value="default">默认版本</option>
+                </select>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="forceRefresh">
+                <label for="forceRefresh">强制刷新（忽略缓存）</label>
+            </div>
+        </div>
+
+        <div class="card hidden" id="unicastCard">
+            <h2 class="card-title">单播频道 (Unicast)</h2>
+            <div class="button-group">
+                <button class="btn-success" onclick="downloadUnicast()">下载 M3U 文件</button>
+                <button class="btn-info" onclick="previewUnicast()">在线预览</button>
+            </div>
+            <div id="unicastStatus" class="status-bar">
+                <div class="status-text">准备就绪</div>
+            </div>
+        </div>
+
+        <div class="card hidden" id="multicastCard">
+            <h2 class="card-title">组播频道 (Multicast)</h2>
+            <div class="button-group">
+                <button class="btn-success" onclick="downloadMulticast()">下载 M3U 文件</button>
+                <button class="btn-info" onclick="previewMulticast()">在线预览</button>
+            </div>
+            <div id="multicastStatus" class="status-bar">
+                <div class="status-text">准备就绪</div>
+            </div>
+        </div>
+
+        <!-- 内嵌预览面板：默认隐藏 + 新增复制/下载按钮 -->
+        <div class="card hidden" id="previewCard">
+            <h2 class="card-title">实时预览</h2>
+            <div class="button-group">
+                <button class="btn-primary" onclick="copyPreviewUrl()" id="copyPreviewBtn">复制M3U链接</button>
+                <button class="btn-success" onclick="downloadPreviewM3U()" id="downloadPreviewBtn">下载当前M3U</button>
+            </div>
+            <iframe id="previewIframe" class="preview-iframe" src=""></iframe>
+        </div>
+
+        <div class="card hidden" id="linksCard">
+            <h2 class="card-title">快速链接</h2>
+            <div id="quickLinks" class="link-list">
+                <p style="color: #888; text-align: center;">请先检查服务器状态</p>
+            </div>
+        </div>
+
+        <div class="card hidden" id="infoCard">
+            <h2 class="card-title">系统信息</h2>
+            <!-- 核心修改：缓存过期时间单独成项，和前两项样式完全一致 -->
+            <div id="systemInfo" class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">缓存状态</div>
+                    <div class="info-value" id="cacheStatus">未知</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">最后更新时间</div>
+                    <div class="info-value" id="lastUpdate">未知</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">缓存过期时间</div>
+                    <div class="info-value" id="cacheExpire">未知</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let baseUrl = '';
+        // 记录当前预览类型：unicast=单播 multicast=组播
+        let currentPreviewType = '';
+        let currentPreviewUrl = '';
+
+        // 格式化时间为中文格式
+        function formatChineseTime(timeStr) {
+            if (!timeStr) return '未生成';
+            try {
+                const date = new Date(timeStr);
+                return date.toLocaleString('zh-CN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+            } catch (e) {
+                return '时间格式异常';
+            }
+        }
+
+        // 获取基础配置
+        function getBaseUrl() {
+            const url = document.getElementById('serverUrl').value.trim();
+            if (!url) {
+                showStatus('connectionStatus', '请输入服务器地址！', 'error');
+                return null;
+            }
+            return url.replace(/\/$/, '');
+        }
+        function getVersion() { return document.getElementById('versionSelect').value; }
+        function getForceRefresh() { return document.getElementById('forceRefresh').checked ? '1' : '0'; }
+
+        // 状态提示
+        function showStatus(elementId, message, type = '') {
+            const el = document.getElementById(elementId);
+            el.className = 'status-bar ' + type;
+            el.innerHTML = `<div class="status-text">${message}</div>`;
+        }
+
+        // 服务器检查成功后：显示所有隐藏模块
+        function showAllModules() {
+            document.getElementById('versionCard').classList.remove('hidden');
+            document.getElementById('unicastCard').classList.remove('hidden');
+            document.getElementById('multicastCard').classList.remove('hidden');
+            document.getElementById('linksCard').classList.remove('hidden');
+            document.getElementById('infoCard').classList.remove('hidden');
+        }
+
+        // 检查服务器状态（核心逻辑）
+        async function checkServerStatus() {
+            baseUrl = getBaseUrl();
+            if (!baseUrl) return;
+
+            showStatus('connectionStatus', '<span class="loading"></span>正在检查...', '');
+            try {
+                // 并行请求，提升速度
+                const [healthRes, versionsRes] = await Promise.all([
+                    fetch(`${baseUrl}/health`),
+                    fetch(`${baseUrl}/versions`)
+                ]);
+
+                if (!healthRes.ok || !versionsRes.ok) throw new Error('服务器连接失败');
+                
+                const [healthData, versionsData] = await Promise.all([
+                    healthRes.json(),
+                    versionsRes.json()
+                ]);
+
+                // 更新数据 + 显示所有模块
+                updateVersionSelect(versionsData.versions);
+                updateSystemInfo(healthData);
+                generateQuickLinks();
+                showAllModules();
+
+                showStatus('connectionStatus', `服务器在线！找到 ${versionsData.versions.length} 个版本`, 'success');
+            } catch (error) {
+                showStatus('connectionStatus', `连接失败：${error.message}`, 'error');
+            }
+        }
+
+        // 更新版本下拉框
+        function updateVersionSelect(versions) {
+            const select = document.getElementById('versionSelect');
+            select.innerHTML = versions.map(v => `<option value="${v.key}">${v.name}</option>`).join('');
+        }
+
+        // 更新系统信息
+        function updateSystemInfo(data) {
+            document.getElementById('cacheStatus').textContent = data.cache_enable ? '启用' : '禁用';
+            document.getElementById('lastUpdate').textContent = formatChineseTime(data.last_cache_time);
+            document.getElementById('cacheExpire').textContent = `${data.cache_expire_seconds} 秒`;
+        }
+
+        // 生成快速链接
+        function generateQuickLinks() {
+            const version = getVersion();
+            const links = [
+                { name: '单播M3U', url: `${baseUrl}/get_m3u?version=${version}` },
+                { name: '组播M3U', url: `${baseUrl}/get_multicast_m3u?version=${version}` },
+                { name: '健康检查', url: `${baseUrl}/health` }
+            ];
+            document.getElementById('quickLinks').innerHTML = links.map(link => `
+                <div class="link-item">
+                    <div class="link-url">${link.url}</div>
+                    <div class="link-actions">
+                        <button class="btn-primary btn-small" onclick="copyToClipboard('${link.url}')">复制</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 复制到剪贴板
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('链接已复制！');
+            }).catch(() => alert('复制失败，请手动复制'));
+        }
+
+        // --------------------- 预览面板新增功能 ---------------------
+        // 复制当前预览的M3U链接
+        function copyPreviewUrl() {
+            if (!currentPreviewUrl) {
+                alert('请先加载预览内容！');
+                return;
+            }
+            copyToClipboard(currentPreviewUrl);
+        }
+
+        // 下载当前预览的M3U文件
+        function downloadPreviewM3U() {
+            if (!currentPreviewType) {
+                alert('请先加载预览内容！');
+                return;
+            }
+            if (currentPreviewType === 'unicast') {
+                downloadUnicast();
+            } else {
+                downloadMulticast();
+            }
+        }
+
+        // --------------------- 下载功能 ---------------------
+        function downloadUnicast() {
+            if (!baseUrl) return;
+            const url = `${baseUrl}/get_m3u?version=${getVersion()}&refresh=${getForceRefresh()}`;
+            showStatus('unicastStatus', '<span class="loading"></span>开始下载...', '');
+            window.location.href = url;
+            setTimeout(() => showStatus('unicastStatus', '下载已开始', 'success'), 500);
+        }
+
+        function downloadMulticast() {
+            if (!baseUrl) return;
+            const url = `${baseUrl}/get_multicast_m3u?version=${getVersion()}&refresh=${getForceRefresh()}`;
+            showStatus('multicastStatus', '<span class="loading"></span>开始下载...', '');
+            window.location.href = url;
+            setTimeout(() => showStatus('multicastStatus', '下载已开始', 'success'), 500);
+        }
+
+        // --------------------- 内嵌预览（记录类型和链接） ---------------------
+        function previewUnicast() {
+            if (!baseUrl) return;
+            currentPreviewType = 'unicast';
+            currentPreviewUrl = `${baseUrl}/preview?version=${getVersion()}&refresh=${getForceRefresh()}`;
+            document.getElementById('previewCard').classList.remove('hidden');
+            document.getElementById('previewIframe').src = currentPreviewUrl;
+            showStatus('unicastStatus', '已加载单播预览', 'success');
+        }
+
+        function previewMulticast() {
+            if (!baseUrl) return;
+            currentPreviewType = 'multicast';
+            currentPreviewUrl = `${baseUrl}/preview/multicast?version=${getVersion()}&refresh=${getForceRefresh()}`;
+            document.getElementById('previewCard').classList.remove('hidden');
+            document.getElementById('previewIframe').src = currentPreviewUrl;
+            showStatus('multicastStatus', '已加载组播预览', 'success');
+        }
+
+        // 本地存储：记住服务器地址
+        window.addEventListener('load', () => {
+            const url = localStorage.getItem('iptv_server_url');
+            if (url) document.getElementById('serverUrl').value = url;
+        });
+        document.getElementById('serverUrl').addEventListener('change', e => {
+            localStorage.setItem('iptv_server_url', e.target.value);
+        });
+
+        // 版本切换刷新链接
+        document.getElementById('versionSelect').addEventListener('change', () => {
+            if (baseUrl) generateQuickLinks();
+        });
+    </script>
+</body>
+</html>
